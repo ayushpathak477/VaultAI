@@ -1,7 +1,6 @@
 # Password Strength Analyzer
 
 ## Overview
->main
 This project is a **Password Strength Analyzer** built using a Recurrent Neural Network (RNN). It evaluates password strength by training on a dataset and predicting the robustness of new inputs. The RNN model also generates strong passwords with high entropy to improve security.
 This project is a prototype Password Strength Analyzer built using a Recurrent Neural Network (RNN) built for Barclays Hack-O-Earth Hackathon. It is designed to evaluate the strength of passwords by training on a dataset and predicting the strength of new inputs. It also generates a new strong password with high entropy using a RNN architecture. 
 
