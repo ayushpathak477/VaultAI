@@ -570,9 +570,15 @@
             
             const lowerCasePassword = password.toLowerCase();
 
-            // 1. Exact match for a common password
-            if (commonWords.includes(lowerCasePassword)) {
-                return 'Instant';
+            // 1. Exact match or substring for a common password
+            for (const word of commonWords) {
+                if (lowerCasePassword === word) {
+                    return 'Instant';
+                }
+                if (lowerCasePassword.includes(word) && word.length > 3) {
+                    // If a common word (longer than 3 chars) is a substring, flag as weak
+                    return 'A few seconds';
+                }
             }
 
             // 2. Common keyboard patterns
@@ -629,9 +635,6 @@
                 // For shorter passwords, use direct calculation
                 timeInSeconds = Math.pow(charsetSize, password.length) / HASHES_PER_SECOND;
             }
-
-            // Apply realistic adjustments for modern cracking techniques
-            timeInSeconds /= 1000; // Account for parallel processing and optimized attacks
 
             // Convert to human-readable format with more granular time ranges
             if (timeInSeconds < 60) return 'Seconds';
@@ -917,4 +920,4 @@
 
     </script>
 </body>
-</html> 
+</html>
