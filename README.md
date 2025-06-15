@@ -1,4 +1,4 @@
-# Password Strength Analyzer
+# VaultAI - Password Strength Analyzer
 
 ## Overview
 >main
