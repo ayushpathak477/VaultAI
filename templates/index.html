@@ -654,7 +654,7 @@
                 has_uppercase: /[A-Z]/.test(password),
                 has_lowercase: /[a-z]/.test(password),
                 has_numbers: /[0-9]/.test(password),
-                has_special: /[!@#$%^&*(),.?":{}|<>_]/.test(password),
+                has_special: /[^a-zA-Z0-9]/.test(password),
                 has_common_patterns: /(.)\1{2,}/.test(password),
                 time_to_crack: calculateTimeToCrack(password),
                 score: 0,
@@ -683,9 +683,12 @@
             if (analysis.has_common_patterns) analysis.score -= 1;
             
             // Determine strength level
-            if (analysis.score >= 7 && analysis.time_to_crack.includes('years')) {
+            const strongTimes = ['days', 'years', 'centuries', 'millennia', 'Eons'];
+            const mediumTimes = ['hours', 'minutes'];
+
+            if (analysis.score >= 7 && strongTimes.some(unit => analysis.time_to_crack.includes(unit))) {
                 analysis.strength = 'Strong';
-            } else if (analysis.score >= 4 && (analysis.time_to_crack.includes('days') || analysis.time_to_crack.includes('hours'))) {
+            } else if (analysis.score >= 4 && (strongTimes.some(unit => analysis.time_to_crack.includes(unit)) || mediumTimes.some(unit => analysis.time_to_crack.includes(unit)))) {
                 analysis.strength = 'Medium';
             } else {
                 analysis.strength = 'Weak';
