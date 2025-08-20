@@ -40,11 +40,11 @@ def check_password_strength(password):
     
     # Enhanced scoring logic that properly weights length and entropy
     # Length scoring - heavily weight very long passwords
-    if analysis['length'] >= 50: analysis['score'] += 6  # Very long passwords are inherently strong
-    elif analysis['length'] >= 25: analysis['score'] += 4
-    elif analysis['length'] >= 16: analysis['score'] += 3
-    elif analysis['length'] >= 12: analysis['score'] += 2
-    elif analysis['length'] >= 8: analysis['score'] += 1
+    if analysis['length'] >= 50: analysis['score'] += 10  # Very long passwords are inherently strong
+    elif analysis['length'] >= 25: analysis['score'] += 8
+    elif analysis['length'] >= 16: analysis['score'] += 6
+    elif analysis['length'] >= 12: analysis['score'] += 4
+    elif analysis['length'] >= 8: analysis['score'] += 2
     
     # Entropy scoring - this is crucial for randomness
     if analysis['entropy'] >= 4.5: analysis['score'] += 3
@@ -61,11 +61,15 @@ def check_password_strength(password):
         analysis['score'] -= 5
     
     # Final strength determination with adjusted thresholds for long passwords
-    if analysis['length'] >= 20 and analysis['score'] >= 8:  # Special case for very long passwords
+    if analysis['length'] >= 50 and analysis['score'] >= 10:  # 50+ char passwords with decent score = strong
         analysis['strength'] = 'strong'
-    elif analysis['score'] >= 10:
+    elif analysis['length'] >= 25 and analysis['score'] >= 8:  # 25+ char passwords with good score = strong
         analysis['strength'] = 'strong'
-    elif analysis['score'] >= 6:
+    elif analysis['length'] >= 16 and analysis['score'] >= 6:  # 16+ char passwords with ok score = strong
+        analysis['strength'] = 'strong'
+    elif analysis['score'] >= 12:  # High score = strong
+        analysis['strength'] = 'strong'
+    elif analysis['score'] >= 8:
         analysis['strength'] = 'medium'
     else:
         analysis['strength'] = 'weak'
@@ -190,3 +194,4 @@ def analyze():
 
 if __name__ == '__main__':
     app.run(debug=True)
+    

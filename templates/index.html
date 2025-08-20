@@ -715,7 +715,7 @@
                     has_numbers: /[0-9]/.test(password),
                     has_special: /[^a-zA-Z0-9]/.test(password),
                     score: 0,
-                    strength: 'Weak',
+                    strength: 'weak',
                     feedback: ['Unable to analyze password - please check connection'],
                     time_to_crack: calculateTimeToCrack(password)
                 };
@@ -802,12 +802,12 @@
             const strengthBar = document.getElementById('strengthBarFill');
             const strengthText = document.getElementById('strengthText');
             
-            if (analysis.strength === 'Strong') {
+            if (analysis.strength === 'strong') {
                 strengthBar.className = 'strength-bar-fill strength-strong';
                 strengthBar.style.width = '100%';
                 strengthText.textContent = 'Strong Password';
                 strengthText.style.color = '#00cc00';
-            } else if (analysis.strength === 'Medium') {
+            } else if (analysis.strength === 'medium') {
                 strengthBar.className = 'strength-bar-fill strength-medium';
                 strengthBar.style.width = '66%';
                 strengthText.textContent = 'Medium Password';
