@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # app.py (Final Version)
 
 from flask import Flask, render_template, request, jsonify
@@ -49,217 +48,145 @@ def check_password_strength(password):
     
     # Entropy scoring - this is crucial for randomness
     if analysis['entropy'] >= 4.5: analysis['score'] += 3
-    elif analysis['entropy'] >= 3.5: analysis['score'] += 2
-    elif analysis['entropy'] >= 2.5: analysis['score'] += 1
+    elif analysis['entropy'] >= 4.0: analysis['score'] += 2
+    elif analysis['entropy'] >= 3.0: analysis['score'] += 1
     
-    # Character diversity (less weight for very long passwords)
-    if analysis['has_uppercase']: analysis['score'] += 1
-    if analysis['has_lowercase']: analysis['score'] += 1
-    if analysis['has_numbers']: analysis['score'] += 1
-    if analysis['has_special']: analysis['score'] += 1
+    # Character diversity
+    diversity_score = sum([analysis['has_uppercase'], analysis['has_lowercase'], 
+                         analysis['has_numbers'], analysis['has_special']])
+    analysis['score'] += diversity_score
     
     # Penalties
-    if analysis['is_common_password']: analysis['score'] -= 3
+    if analysis['is_common_password']:
+        analysis['score'] -= 5
     
-    # Special case: Very long passwords with decent entropy should be strong
-    if analysis['length'] >= 30 and analysis['entropy'] >= 2.0:
-        analysis['score'] = max(analysis['score'], 7)  # Ensure it's at least Strong
-    
-    if analysis['score'] >= 7: analysis['strength'] = 'Strong'
-    elif analysis['score'] >= 4: analysis['strength'] = 'Medium'
-    else: analysis['strength'] = 'Weak'
+    # Final strength determination with adjusted thresholds for long passwords
+    if analysis['length'] >= 20 and analysis['score'] >= 8:  # Special case for very long passwords
+        analysis['strength'] = 'strong'
+    elif analysis['score'] >= 10:
+        analysis['strength'] = 'strong'
+    elif analysis['score'] >= 6:
+        analysis['strength'] = 'medium'
+    else:
+        analysis['strength'] = 'weak'
     
     return analysis
-# --- AI Model Loading and Generation (Updated Section) ---
+
+# --- Model Setup and Loading ---
 app = Flask(__name__)
 
+# Load the trained model and character mappings
 try:
-    print("Loading Keras model and vocabulary...")
     model = tf.keras.models.load_model('strong_password_generator.h5')
+    print("Model loaded successfully!")
+    
+    # Load character mappings
     with open('char_to_int.json', 'r') as f:
         char_to_int = json.load(f)
     
-    int_to_char = {i: c for c, i in char_to_int.items()}
-    vocab_size = len(char_to_int)
-    seq_length = model.input_shape[1]
-    print("Model and vocabulary loaded successfully!")
-except Exception as e:
-    print(f"FATAL: Could not load model or vocabulary. Error: {e}")
-    model = None # Set model to None if loading fails
-
-def generate_password_keras(model, seed, length=12, temperature=0.75):
-    """Generates a password and enforces character type rules."""
-    if model is None:
-        return "Error: Model not loaded."
-        
-    # AI Generation Part
-    pattern = [char_to_int.get(char, 0) for char in seed[-seq_length:]]
-    password = seed
-    for _ in range(length - len(seed)):
-        x = np.reshape(pattern, (1, len(pattern), 1)) / float(vocab_size)
-        prediction = model.predict(x, verbose=0)[0]
-        prediction = np.log(prediction) / temperature
-        exp_preds = np.exp(prediction)
-        prediction = exp_preds / np.sum(exp_preds)
-        index = np.random.choice(range(vocab_size), p=prediction)
-        password += int_to_char.get(index, '')
-        pattern.append(index)
-        pattern = pattern[1:]
+    int_to_char = {v: k for k, v in char_to_int.items()}
+    print(f"Character mappings loaded. Vocabulary size: {len(char_to_int)}")
     
-    # Rule Enforcement Part
-    if not any(c.islower() for c in password): password += random.choice(string.ascii_lowercase)
-    if not any(c.isupper() for c in password): password += random.choice(string.ascii_uppercase)
-    if not any(c.isdigit() for c in password): password += random.choice(string.digits)
-    if not any(c in "!@#$%" for c in password): password += random.choice("!@#$%")
+except Exception as e:
+    print(f"Error loading model or character mappings: {e}")
+    model = None
+    char_to_int = None
+    int_to_char = None
+
+# --- Password Generation ---
+def generate_password_with_model(length=12):
+    if model is None or char_to_int is None:
+        # Fallback to heuristic generation
+        return generate_heuristic_password(length)
+    
+    try:
+        # Start with a random character from vocabulary
+        start_char = random.choice(list(char_to_int.keys()))
+        generated = start_char
         
-    return password
+        # Use model to predict next characters
+        for _ in range(length - 1):
+            # Prepare input sequence (last 10 chars or available chars)
+            input_sequence = generated[-10:] if len(generated) >= 10 else generated
+            
+            # Convert to integers
+            input_ints = [char_to_int.get(c, 0) for c in input_sequence]
+            
+            # Pad if necessary
+            while len(input_ints) < 10:
+                input_ints.insert(0, 0)
+            
+            # Reshape for model
+            input_array = np.array(input_ints).reshape(1, 10, 1)
+            
+            # Predict next character
+            prediction = model.predict(input_array, verbose=0)
+            
+            # Sample from the prediction (with some randomness)
+            predicted_int = np.random.choice(len(prediction[0]), p=prediction[0])
+            
+            # Convert back to character
+            next_char = int_to_char.get(predicted_int, random.choice(list(char_to_int.keys())))
+            generated += next_char
+        
+        return generated
+        
+    except Exception as e:
+        print(f"Error in model generation: {e}")
+        return generate_heuristic_password(length)
+
+def generate_heuristic_password(length=12):
+    """Fallback password generation using heuristics"""
+    lowercase = string.ascii_lowercase
+    uppercase = string.ascii_uppercase
+    digits = string.digits
+    special = "!@#$%^&*()_+-=[]{}|;:,.<>?"
+    
+    # Ensure at least one from each category
+    password = [
+        random.choice(lowercase),
+        random.choice(uppercase),
+        random.choice(digits),
+        random.choice(special)
+    ]
+    
+    # Fill the rest randomly
+    all_chars = lowercase + uppercase + digits + special
+    for _ in range(length - 4):
+        password.append(random.choice(all_chars))
+    
+    # Shuffle to avoid predictable pattern
+    random.shuffle(password)
+    return ''.join(password)
 
 # --- Flask Routes ---
 @app.route('/')
-def home():
+def index():
     return render_template('index.html')
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    if model is None:
-        return jsonify({'error': 'Model is not available.'}), 500
+    try:
+        data = request.get_json()
+        length = data.get('length', 12)
         
-    seed_text = request.json.get('seed_text', '')
-    if not seed_text:
-        return jsonify({'error': 'Please provide a seed text'}), 400
+        # Ensure length is within reasonable bounds
+        length = max(8, min(50, int(length)))
+        
+        generated_password = generate_password_with_model(length)
+        
+        return jsonify({'password': generated_password})
     
-    generated_password = generate_password_keras(model, seed_text, length=random.randint(12, 16))
-    return jsonify({'password': generated_password})
+    except Exception as e:
+        return jsonify({'error': f'Generation failed: {str(e)}'}), 500
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    password = request.json.get('password', '')
-    if not password:
-        return jsonify({'error': 'Please provide a password'}), 400
+    data = request.get_json()
+    password = data.get('password', '')
     
     analysis = check_password_strength(password)
     return jsonify(analysis)
 
 if __name__ == '__main__':
-=======
-# app.py (Final Version)
-
-from flask import Flask, render_template, request, jsonify
-import tensorflow as tf
-import numpy as np
-import re
-import math
-from collections import Counter
-import os
-import json
-import random
-import string
-
-# --- Password Strength Analysis (Heuristics - No change needed here) ---
-def calculate_entropy(password):
-    if not password:
-        return 0
-    char_counts = Counter(password)
-    length = len(password)
-    entropy = sum([- (count / length) * math.log2(count / length) for count in char_counts.values()])
-    return entropy
-
-common_passwords = {
-    'password', '123456', '12345678', 'qwerty', 'abc123', 'monkey123',
-    'letmein', 'dragon', '111111', 'baseball', 'iloveyou', 'trustno1'
-}
-
-def check_password_strength(password):
-    analysis = {
-        'length': len(password),
-        'entropy': calculate_entropy(password),
-        'has_uppercase': bool(re.search(r'[A-Z]', password)),
-        'has_lowercase': bool(re.search(r'[a-z]', password)),
-        'has_numbers': bool(re.search(r'[0-9]', password)),
-        'has_special': bool(re.search(r'[^a-zA-Z0-9]', password)),
-        'is_common_password': password.lower() in common_passwords,
-        'score': 0,
-        'strength': ''
-    }
-    
-    # Simple scoring logic
-    if analysis['length'] >= 12: analysis['score'] += 2
-    elif analysis['length'] >= 8: analysis['score'] += 1
-    if analysis['entropy'] >= 3.5: analysis['score'] += 2
-    elif analysis['entropy'] >= 2.5: analysis['score'] += 1
-    if analysis['has_uppercase']: analysis['score'] += 1
-    if analysis['has_lowercase']: analysis['score'] += 1
-    if analysis['has_numbers']: analysis['score'] += 1
-    if analysis['has_special']: analysis['score'] += 1
-    if analysis['is_common_password']: analysis['score'] -= 2
-    
-    if analysis['score'] >= 7: analysis['strength'] = 'Strong'
-    elif analysis['score'] >= 4: analysis['strength'] = 'Medium'
-    else: analysis['strength'] = 'Weak'
-    
-    return analysis
-
-# --- AI Model Loading and Generation (Updated Section) ---
-app = Flask(__name__)
-
-try:
-    print("Loading Keras model and vocabulary...")
-    model = tf.keras.models.load_model('strong_password_generator.h5')
-    with open('char_to_int.json', 'r') as f:
-        char_to_int = json.load(f)
-    
-    int_to_char = {i: c for c, i in char_to_int.items()}
-    vocab_size = len(char_to_int)
-    seq_length = model.input_shape[1]
-    print("Model and vocabulary loaded successfully!")
-except Exception as e:
-    print(f"FATAL: Could not load model or vocabulary. Error: {e}")
-    model = None # Set model to None if loading fails
-
-def generate_password_keras(model, seed, length=12, temperature=0.75):
-    """Generates a password and enforces character type rules."""
-    if model is None:
-        return "Error: Model not loaded."
-        
-    # AI Generation Part
-    pattern = [char_to_int.get(char, 0) for char in seed[-seq_length:]]
-    password = seed
-    for _ in range(length - len(seed)):
-        x = np.reshape(pattern, (1, len(pattern), 1)) / float(vocab_size)
-        prediction = model.predict(x, verbose=0)[0]
-        prediction = np.log(prediction) / temperature
-        exp_preds = np.exp(prediction)
-        prediction = exp_preds / np.sum(exp_preds)
-        index = np.random.choice(range(vocab_size), p=prediction)
-        password += int_to_char.get(index, '')
-        pattern.append(index)
-        pattern = pattern[1:]
-    
-    # Rule Enforcement Part
-    if not any(c.islower() for c in password): password += random.choice(string.ascii_lowercase)
-    if not any(c.isupper() for c in password): password += random.choice(string.ascii_uppercase)
-    if not any(c.isdigit() for c in password): password += random.choice(string.digits)
-    if not any(c in "!@#$%" for c in password): password += random.choice("!@#$%")
-        
-    return password
-
-# --- Flask Routes ---
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/generate', methods=['POST'])
-def generate():
-    if model is None:
-        return jsonify({'error': 'Model is not available.'}), 500
-        
-    seed_text = request.json.get('seed_text', '')
-    if not seed_text:
-        return jsonify({'error': 'Please provide a seed text'}), 400
-    
-    generated_password = generate_password_keras(model, seed_text, length=random.randint(12, 16))
-    return jsonify({'password': generated_password})
-
-if __name__ == '__main__':
->>>>>>> b2f0d7519b170a91b4365f41d6d6d73b8b24de16
     app.run(debug=True)
